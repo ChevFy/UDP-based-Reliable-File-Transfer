@@ -7,7 +7,7 @@ BUFFER_SIZE = 1024
 
 # Type 0 for handshake
 # Type 1 for Send Packet
-# Tpye 2 for Close
+# Tpye 2 for ACK
 
 
 def main(arg):
@@ -19,50 +19,68 @@ def main(arg):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.settimeout(0.5)
     seq = 0
+    addr_server = (server_ip, server_port)
 
-    # Handshake
     handshake = False
-    isValid = True
-    file_name = file_path.name
-    packet_handshake = Packet(seq, 0, file_name.encode("utf-8"))
-    sock.sendto(packet_handshake.to_bytes(), (server_ip, server_port))
 
     Ack = False
     while True:
 
-        while not Ack:
-            try:
-                data, addr = sock.recvfrom(BUFFER_SIZE)
-            except socket.timeout:
-                print("Timeout : resending handshake...")
-                sock.sendto(packet_handshake.to_bytes(), (server_ip, server_port))
-                continue
-            recv_seq, recv_packet_type, recv_checksum, recv_payload = (Packet.from_byte(data))
-            print(f"Received SEQ : {recv_seq} , Type : {recv_packet_type} , Checksum : {recv_checksum} , Payload : {recv_payload} from {addr}")
-            if not handshake and recv_packet_type == 0 and seq == recv_seq  and  hashlib.md5(recv_payload).digest() == recv_checksum:
-                seq += 1
-                handshake = True
-                Ack = True
-                print(f"Handshake with {addr} Sucess")
-            else:
-                print("Error : Something isn't valid")
-                sock.sendto(packet_handshake.to_bytes(), (server_ip, server_port))
-                continue
-                
+        # Three way handshake
+        if not handshake:
+            print("---------- Handshake Started ----------")
+            syn_packet = Packet(seq, 0, None)
+            if syn_packet is None:
+                print("syn_packet has been failed")
+                return
+
+            sock.sendto(syn_packet.to_bytes(), addr_server)
+            print(
+                f"SEND SEQ : {seq} , Type : 0 , Checksum : None , Payload : None to {addr_server}"
+            )
+            while not Ack:
+                try:
+                    data, addr = sock.recvfrom(BUFFER_SIZE)
+                except socket.timeout:
+                    print("Timeout : resending handshake...")
+                    sock.sendto(syn_packet.to_bytes(), addr_server)
+                    print(
+                        f"SEND SEQ : {seq} , Type : 0 , Checksum : None , Payload : None to {addr_server}"
+                    )
+                    continue
+                recv_seq, recv_packet_type, recv_checksum, recv_payload = (
+                    Packet.from_byte(data)
+                )
+
+                print(
+                    f"Received SEQ : {recv_seq} , Type : {recv_packet_type} , Checksum : {recv_checksum} , Payload : {recv_payload} from {addr}"
+                )
+                if (
+                    recv_packet_type == 2
+                    and seq == recv_seq
+                    and hashlib.md5(recv_payload).digest() == recv_checksum
+                ):
+                    seq += 1
+                    handshake = True
+                    Ack = True
+                    print(f"----Handshake with {addr_server} Success----")
+                else:
+                    print("Error : Something isn't valid")
+                    sock.sendto(syn_packet.to_bytes(), (server_ip, server_port))
+                    print(
+                        f"SEND SEQ : {seq} , Type : 0 , Checksum : None , Payload : None to {addr_server}"
+                    )
+                    continue
+
+            file_name = file_path.name
+            packet_ack = Packet(seq, 1, file_name.encode("utf-8"))
+            sock.sendto(packet_ack.to_bytes(), addr_server)
+            print(
+                f"SEND SEQ : {seq} , Type : 1 , Checksum : None , Payload : {file_name.encode('utf-8')} to {addr_server}"
+            )
 
         if Ack:
             break
-            
-
-        # try:
-        #     with open(file_path, "rb") as file:
-        #         file_raw_byte = file.read(BUFFER_SIZE)
-        #         print(f"SEQ : {seq} , ", file_raw_byte)
-        # except FileNotFoundError:
-        #     print("File not fouud!!")
-        #     sys.exit(0)
-
-        # sock.sendto(file_raw_byte, (server_ip, server_port))
 
     sock.close()
 
