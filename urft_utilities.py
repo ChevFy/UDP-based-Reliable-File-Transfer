@@ -15,6 +15,9 @@ class Packet :
     def to_bytes(self):
         return struct.pack(self.HEADERFORMAT, self.__seq , self.__packet_type, self.__checksum) + self.__payload
     
+    @staticmethod
+    def header_size():
+        return struct.calcsize(Packet.HEADERFORMAT)
 
     @staticmethod
     def from_byte(raw_byte):
