@@ -44,17 +44,16 @@ def main(arg):
                 recv_packet_type == 1
                 and recv_checksum == hashlib.md5(recv_payload).digest()
             ):
-                with open(recv_payload.decode("utf-8"), "w") as file:
-                    pass
-                ack_packet = Packet(recv_seq, 2, None)
+                with open( "server_file/" + recv_payload.decode("utf-8"), "w") as file:
+                    ack_packet = Packet(recv_seq, 2, None)
 
-                sock.sendto(ack_packet.to_bytes(), addr)
-                print(
-                    f"SEND SEQ : {recv_seq} , Type : 2 , Checksum : None , Payload : None to {addr}"
-                )
-                syn_ack = True
-                print(f"----Handshake with {addr} Sucess----")
-                continue
+                    sock.sendto(ack_packet.to_bytes(), addr)
+                    print(
+                        f"SEND SEQ : {recv_seq} , Type : 2 , Checksum : None , Payload : None to {addr}"
+                    )
+                    syn_ack = True
+                    print(f"----Handshake with {addr} Sucess----")
+                    continue
 
 
 if __name__ == "__main__":
