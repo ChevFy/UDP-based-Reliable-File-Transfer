@@ -19,8 +19,8 @@ def handshakeConnection( seq :int , sock : socket.socket , addr_server):
     #send SYN
     
     SYN_packet = Packet(seq,0,None)
-    if(SYN_packet) :
-        return {"Error" : "Syn Packet failed to pack"} , connect_result
+    if(not SYN_packet) :
+        return {"Error" : "Syn Packet failed to pack"} , connect_result , seq
     
     print(f"SEND SEQ : {seq} , Type : 0 , Checksum : None , Payload : None")
     sock.sendto( SYN_packet.to_bytes() ,addr_server)
@@ -41,7 +41,7 @@ def handshakeConnection( seq :int , sock : socket.socket , addr_server):
                     break
                 else :
                     if(count >= 3):
-                            return { {"Error" : "Connetion Failed!!"} , connect_result}
+                            return {"Error" : "Connection Failed!!"} , connect_result , seq
                     count+=1
                     print("Error : Something isn't valid")
                     print("Resend... : SYN Packet")

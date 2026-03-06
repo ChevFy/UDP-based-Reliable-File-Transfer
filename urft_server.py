@@ -11,7 +11,6 @@ def handshakeConnection( sock : socket.socket):
     #waiting recv SYN
     while not connection_result :
         print("Waiting for Connection...")
-        sock.settimeout(None)  # block indefinitely waiting for SYN
         SYN_data, addr = sock.recvfrom(BUFFER_SIZE)
         SYN_recv_seq, SYN_recv_packet_type, SYN_recv_checksum, SYN_recv_payload = (Packet.from_byte(SYN_data))
         print(
@@ -27,7 +26,6 @@ def handshakeConnection( sock : socket.socket):
             print(
                 f"SEND SEQ : {SYN_recv_seq} , Type : 2 , Checksum : None , Payload : None to {addr}"
             )
-        sock.settimeout(0.5)  # set timeout only for ACK wait
         while True :
             try :
                 ACK_data, addr = sock.recvfrom(BUFFER_SIZE)
