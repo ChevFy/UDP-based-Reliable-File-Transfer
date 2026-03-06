@@ -26,7 +26,6 @@ def handshakeConnection( sock : socket.socket):
             print(
                 f"SEND SEQ : {SYN_recv_seq} , Type : 2 , Checksum : None , Payload : None to {addr}"
             )
-        sock.settimeout(0.5)
         while True :
             try :
                 ACK_data, addr = sock.recvfrom(BUFFER_SIZE)
