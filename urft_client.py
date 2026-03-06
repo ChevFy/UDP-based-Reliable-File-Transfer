@@ -11,6 +11,52 @@ BUFFER_SIZE = 4096
 # Type 3 for FIN
 
 
+def handshakeConnection( seq :int , sock : socket.socket , addr_server):
+
+    connect_result = False
+    SYN_ACK_recv = False
+
+    #send SYN
+    
+    SYN_packet = Packet(seq,0,None)
+    if(SYN_packet) :
+        return {"Error" : "Syn Packet failed to pack"} , connect_result
+    
+    print(f"SEND SEQ : {seq} , Type : 0 , Checksum : None , Payload : None")
+    sock.sendto( SYN_packet.to_bytes() ,addr_server)
+
+    count = 0
+
+    if not SYN_ACK_recv :
+        #wating for reciev syn-ack 
+        while True :
+            print("Waiting for SYN-ACK...")
+            try :
+                SYN_ACK_data , addr = sock.recvfrom(BUFFER_SIZE)
+                SYN_ACK_recv_seq, SYN_ACK_recv_packet_type, SYN_ACK_recv_checksum, SYN_ACK_recv_payload = Packet.from_byte(SYN_ACK_data)
+                print(f"Received SEQ : {SYN_ACK_recv_seq} , Type : {SYN_ACK_recv_packet_type} , Checksum : {SYN_ACK_recv_checksum} , Payload : {SYN_ACK_recv_payload} from {addr}")
+                if(SYN_ACK_recv_packet_type == 2 and SYN_ACK_recv_seq == seq and hashlib.md5(SYN_ACK_recv_payload).digest() == SYN_ACK_recv_checksum) :
+                    connect_result , SYN_ACK_recv = True, True
+                    print("SYN-ACK received successfully")
+                    break
+                else :
+                    if(count >= 3):
+                            return { {"Error" : "Connetion Failed!!"} , connect_result}
+                    count+=1
+                    print("Error : Something isn't valid")
+                    print("Resend... : SYN Packet")
+                    sock.sendto( SYN_packet.to_bytes() ,addr_server)
+            except socket.timeout :
+                print("Timeout!!!")
+                print("Resend... : SYN Packet")
+                sock.sendto( SYN_packet.to_bytes() ,addr_server)
+
+    return {"Success" : "Client Connection Success"} , connect_result , seq
+ 
+
+
+
+
 def main(arg):
     if len(arg) != 4:
         print("Error")
@@ -24,104 +70,22 @@ def main(arg):
     seq = 0
     addr_server = (server_ip, server_port)
 
-    handshake = False
+    for _ in range(3):
+        message_client , connection_result_client , seq = handshakeConnection(seq,sock,addr_server)
+        print(message_client)
+        if(connection_result_client):
+            break
 
-    ack = False
-    while True:
+    
+    
+    
+    
 
-        # Three way handshake
-        if not handshake:
-            print("---------- Handshake Started ----------")
-            syn_packet = Packet(seq, 0, None)
-            if syn_packet is None:
-                print("syn_packet has been failed")
-                return
-            ## SYN 
-            sock.sendto(syn_packet.to_bytes(), addr_server)
-            print(
-                f"SEND SEQ : {seq} , Type : 0 , Checksum : None , Payload : None to {addr_server}"
-            )
-            while not ack:
-                try:
-                    data, addr = sock.recvfrom(BUFFER_SIZE)
-                except socket.timeout:
-                    print("Timeout : resending handshake...")
-                    sock.sendto(syn_packet.to_bytes(), addr_server)
-                    print(
-                        f"SEND SEQ : {seq} , Type : 0 , Checksum : None , Payload : None to {addr_server}"
-                    )
-                    continue
-                # waiting for SYN-ACK
-                recv_seq, recv_packet_type, recv_checksum, recv_payload = (
-                    Packet.from_byte(data)
-                )
-
-                print(
-                    f"Received SEQ : {recv_seq} , Type : {recv_packet_type} , Checksum : {recv_checksum} , Payload : {recv_payload} from {addr}"
-                )
-                if (
-                    recv_packet_type == 2
-                    and seq == recv_seq
-                    and hashlib.md5(recv_payload).digest() == recv_checksum
-                ):
-                    seq += 1
-                    handshake = True
-                    ack = True
-                    print(f"----Handshake with {addr_server} Success----")
-                else:
-                    print("Error : Something isn't valid")
-                    sock.sendto(syn_packet.to_bytes(), (server_ip, server_port))
-                    print(
-                        f"SEND SEQ : {seq} , Type : 0 , Checksum : None , Payload : None to {addr_server}"
-                    )
-                    continue
-
-            #SENT DATA (ACK)
-            packet_ack = Packet(seq, 1, file_name.encode("utf-8"))
-            sock.sendto(packet_ack.to_bytes(), addr_server)
-            print(
-                f"SEND SEQ : {seq} , Type : 1 , Checksum : None , Payload : {file_name.encode('utf-8')} to {addr_server}"
-            )
-            ack = False
+    
         
-        with open(file_path , "rb") as file :
-            offset = 0
-            payload_size = BUFFER_SIZE - Packet.header_size()
-            while True :
-                
-                while not ack :
-                    try:
-                        data, addr = sock.recvfrom(BUFFER_SIZE)
-                    except socket.timeout:
-                        print("Timeout : resending last packet...")
-                        sock.sendto(last_packet.to_bytes(), addr_server)
-                        continue
-                    recv_seq, recv_packet_type, recv_checksum, recv_payload = (Packet.from_byte(data))
-                    
-                    if(recv_packet_type == 2 and seq == recv_seq and hashlib.md5(recv_payload).digest() == recv_checksum ):
-                        seq+=1
-                        ack = True
-                    
-                if ack :
-                    file.seek(offset)
-                    buffer_read = file.read(payload_size)
-                    if( file_size  - offset <= payload_size):
-                        packet_data  = Packet(seq , 3 , buffer_read)
-                        sock.sendto(packet_data.to_bytes(), addr_server )
-                        print("-----SEND FILE SUCCESS-----")
-                        break
-                    else :
-                        packet_data  = Packet(seq , 1 , buffer_read)
-                        sock.sendto(packet_data.to_bytes(), addr_server )  
-                        print(
-                            f"SEND SEQ : {seq} , Type : 1 , Payload : {len(buffer_read)} bytes to {addr_server}"
-                        )
-                        last_packet = packet_data
-                        offset += len(buffer_read)
-                        ack = False
+
         
-        sock.close()
-        break
+    
 
                     
                     
