@@ -128,6 +128,7 @@ def main(arg):
                     before_seq += 1
 
             for missing in missing_seqs:
+                socket.timeout(0.5)
                 print(f"Packet seq {missing} is missing!!")
                 sock.sendto(Packet(seq, 4, missing.to_bytes(4, byteorder='big')).to_bytes(), addr)
                 while True :
@@ -178,11 +179,6 @@ def main(arg):
     CLEAR_BUFFER_PACKET()
     print("Buffer cleared, ready for new connections")
     
-
-            
-    
-    
-
 
 if __name__ == "__main__":
     main(sys.argv)

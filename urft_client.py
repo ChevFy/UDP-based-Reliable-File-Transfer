@@ -83,10 +83,6 @@ def sendPacket( payload : str , type : int,current_seq : int , sock : socket.soc
     return {"Success" : "Packet has been sent"} , send_data_result , current_seq
 
 
-        
-    
-    
-
 def main(arg):
     if len(arg) != 4:
         print("Error")
@@ -126,15 +122,15 @@ def main(arg):
             offset += len(buffer_read)
     
     ## Check ACK for FIN
-    fin_seq = seq - 1  # seq was incremented by sendPacket after sending FIN
+    fin_seq = seq - 1 
     fin_packet = Packet(fin_seq, 3, None)
     while True :
         try :
             data , addr = sock.recvfrom(BUFFER_SIZE)
             recv_seq, recv_packet_type, recv_checksum, recv_payload = Packet.from_byte(data)
-            print(f"Received SEQ : {recv_seq} , Type : {recv_packet_type} , Checksum : {recv_checksum} , Payload : {recv_payload} from {addr}")
+            print(f"recv seq : {recv_seq} , type : {recv_packet_type} , Checksum : {recv_checksum} , Payload : {recv_payload} from {addr}")
             if(recv_packet_type == 2 and recv_seq == fin_seq and hashlib.md5(recv_payload).digest() == recv_checksum) :
-                print("ACK for FIN received successfully")
+                print("ACK for FIN recv successfully")
                 break
             else :
                 print("Error : Something isn't valid")
@@ -153,23 +149,24 @@ def main(arg):
             print(f"Received SEQ : {recv_seq} , Type : {recv_packet_type} , Checksum : {recv_checksum} , Payload : {recv_payload} from {addr}")
             if(recv_packet_type == 3 and hashlib.md5(recv_payload).digest() == recv_checksum) :
                 print("FIN received from server")
-                print("----tranfer-")
+                print("----tranfer----")
                 break
             if(recv_packet_type == 4 and hashlib.md5(recv_payload).digest() == recv_checksum) :
                 print("sack received successfully")
                 missing_seq = int.from_bytes(recv_payload, byteorder='big')
-                print(f"Resending missing packet with SEQ : {missing_seq}")
+                print(f"Resending missing packet with seq : {missing_seq}")
                 for packet in BUFFER_PACKET:
                     if packet.seq == missing_seq:
                         sock.sendto(packet.to_bytes(), addr_server)
-                        print(f"Resent packet with SEQ : {missing_seq}")
+                        print(f"Resent packet with seq : {missing_seq}")
                         break
             else :
                 print("Error : Something isn't valid")
         except socket.timeout :
             print("Timeout!!! Waiting for SACK...")
+            sock.sendto(Packet(seq, 4, missing_seq.to_bytes(4, byteorder='big')).to_bytes(), addr_server)
 
-    print("File transfer completed successfully!")
+    print("completed successfully!")
     sock.close()
     
 
