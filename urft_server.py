@@ -5,12 +5,13 @@ from urft_utilities import *
 
 BUFFER_SIZE = 4096
 
-def handshakeConnection( sock : socket.socket):
+def handshakeConnectionServer( sock : socket.socket):
     connection_result =  False
 
     #waiting recv SYN
     while not connection_result :
         print("Waiting for Connection...")
+        sock.timeout(None)
         SYN_data, addr = sock.recvfrom(BUFFER_SIZE)
         SYN_recv_seq, SYN_recv_packet_type, SYN_recv_checksum, SYN_recv_payload = (Packet.from_byte(SYN_data))
         print(
@@ -26,7 +27,9 @@ def handshakeConnection( sock : socket.socket):
             print(
                 f"SEND SEQ : {SYN_recv_seq} , Type : 2 , Checksum : None , Payload : None to {addr}"
             )
+        socket.timeout(3)
         while True :
+            # waiting for
             try :
                 ACK_data, addr = sock.recvfrom(BUFFER_SIZE)
                 ACK_recv_seq, ACK_recv_packet_type, ACK_recv_checksum, ACK_recv_payload = (Packet.from_byte(ACK_data))
@@ -43,13 +46,6 @@ def handshakeConnection( sock : socket.socket):
                 print("Timeout waiting for ACK, resending SYN-ACK...")
                 sock.sendto(ack_packet.to_bytes(), addr)
             
-        
-        
-
-
-        
-    
-
 
 def main(arg):
 
@@ -62,13 +58,21 @@ def main(arg):
     sock.bind((server_ip, server_port))
     print(f"Listening for UDP packets on {server_ip}:{server_port}")
 
-    message_server , connection_result_server , seq , addr = handshakeConnection(sock)
-    print(message_server)
-    if(connection_result_server):
-        print(f"Connection established with client at {addr}")
-    else :
-        print("Connection failed")
-        return 
+    ## Handshake
+    connection_result_server = False
+    while not connection_result_server:
+        message_server , connection_result_server , seq , addr = handshakeConnectionServer(sock)
+        print(message_server)
+        if(connection_result_server):
+            print(f"Connection established with client at {addr}")
+            connection_result_server = True
+            break
+        else :
+            print("Connection failed")
+
+            
+    
+    
 
 
 if __name__ == "__main__":

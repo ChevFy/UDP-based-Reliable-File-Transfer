@@ -11,7 +11,7 @@ BUFFER_SIZE = 4096
 # Type 3 for FIN
 
 
-def handshakeConnection( seq :int , sock : socket.socket , addr_server):
+def handshakeConnectionClient( seq :int , sock : socket.socket , addr_server):
 
     connect_result = False
     SYN_ACK_recv = False
@@ -76,7 +76,7 @@ def main(arg):
     addr_server = (server_ip, server_port)
 
     for _ in range(3):
-        message_client , connection_result_client , seq = handshakeConnection(seq,sock,addr_server)
+        message_client , connection_result_client , seq = handshakeConnectionClient(seq,sock,addr_server)
         print(message_client)
         if(connection_result_client):
             break
