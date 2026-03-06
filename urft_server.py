@@ -121,7 +121,7 @@ def main(arg):
                     before_seq+=1
                 else :
                     print(f"Packet seq {before_seq} is missing, waiting for it...")
-                    sock.sendto(Packet(seq, 4, before_seq).to_bytes(), addr)
+                    sock.sendto(Packet(seq, 4, before_seq.to_bytes(4, byteorder='big')).to_bytes(), addr)
                     while True :
                         try :
                             data , addr = sock.recvfrom(BUFFER_SIZE)
@@ -138,7 +138,7 @@ def main(arg):
                                 print("Received packet is not the missing packet, ignoring it...")
                         except socket.timeout :
                             print("Timeout waiting for missing packet, resending SACK...")
-                            sock.sendto(Packet(seq , 4, before_seq).to_bytes(), addr)
+                            sock.sendto(Packet(seq , 4, before_seq.to_bytes(4, byteorder='big')).to_bytes(), addr)
 
     else :
         print("No packets in buffer, waiting for new packets...")
