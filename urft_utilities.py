@@ -28,4 +28,20 @@ class Packet :
         seq , packet_type , checksum = struct.unpack(Packet.HEADERFORMAT, header)
         return  seq , packet_type , checksum ,payload
     
+    @property
+    def seq(self):
+        return self.__seq
+    
+    @property
+    def packet(self):
+        return self.__packet_type
+    
+    @property
+    def payload(self):
+        return self.__payload
+    
+    @property
+    def checksum(self):
+        return self.__checksum
+    
     
