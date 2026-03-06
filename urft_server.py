@@ -121,7 +121,7 @@ def main(arg):
                     before_seq+=1
                 else :
                     print(f"Packet seq {before_seq} is missing, waiting for it...")
-                    sock.sendto(Packet(before_seq, 4, None).to_bytes(), addr)
+                    sock.sendto(Packet(seq, 4, before_seq).to_bytes(), addr)
                     while True :
                         try :
                             data , addr = sock.recvfrom(BUFFER_SIZE)
