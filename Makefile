@@ -4,7 +4,7 @@
 # ---------- default config ----------
 SERVER_IP   ?= 192.168.1.155
 SERVER_PORT ?= 8080
-FILE        ?= 67011475_sec102_lab10.pdf
+FILE        ?= FFFFF.pdf
 # ------------------------------------
 
 .PHONY: server client list help stop
