@@ -2,7 +2,7 @@
 #  URFT – UDP-based Reliable File Transfer
 # ============================================================
 # ---------- default config ----------
-SERVER_IP   ?= 192.168.1.155
+SERVER_IP   ?= 192.168.1.173
 SERVER_PORT ?= 8080
 FILE        ?= FFFFF.pdf
 # ------------------------------------

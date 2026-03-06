@@ -145,17 +145,18 @@ def main(arg):
             print("Resend... : FIN Packet")
             sock.sendto(fin_packet.to_bytes(), addr_server)
 
-    ## Check SACK for missing packet or FIN from server
+    ## SACK : Missiong packet
     while True :
         try :
             data , addr = sock.recvfrom(BUFFER_SIZE)
             recv_seq, recv_packet_type, recv_checksum, recv_payload = Packet.from_byte(data)
             print(f"Received SEQ : {recv_seq} , Type : {recv_packet_type} , Checksum : {recv_checksum} , Payload : {recv_payload} from {addr}")
             if(recv_packet_type == 3 and hashlib.md5(recv_payload).digest() == recv_checksum) :
-                print("FIN received from server, transfer complete")
+                print("FIN received from server")
+                print("----tranfer-")
                 break
             if(recv_packet_type == 4 and hashlib.md5(recv_payload).digest() == recv_checksum) :
-                print("SACK received successfully")
+                print("sack received successfully")
                 missing_seq = int.from_bytes(recv_payload, byteorder='big')
                 print(f"Resending missing packet with SEQ : {missing_seq}")
                 for packet in BUFFER_PACKET:
