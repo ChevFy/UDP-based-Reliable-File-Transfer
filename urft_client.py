@@ -38,6 +38,11 @@ def handshakeConnection( seq :int , sock : socket.socket , addr_server):
                 if(SYN_ACK_recv_packet_type == 2 and SYN_ACK_recv_seq == seq and hashlib.md5(SYN_ACK_recv_payload).digest() == SYN_ACK_recv_checksum) :
                     connect_result , SYN_ACK_recv = True, True
                     print("SYN-ACK received successfully")
+                    ACK_packet = Packet(seq,1,None)
+                    if(not ACK_packet) :
+                        return {"Error" : "ACK Packet failed to pack"} , connect_result , seq
+                    print(f"SEND SEQ : {seq} , Type : 1 , Checksum : None , Payload : None")
+                    sock.sendto( ACK_packet.to_bytes() ,addr_server)
                     break
                 else :
                     if(count >= 3):
