@@ -115,30 +115,36 @@ def main(arg):
     ##Check buffer 
     
     if len(BUFFER_PACKET) > 0 :
+            # Find all missing sequences first
+            missing_seqs = []
             before_seq = BUFFER_PACKET[0].seq
             for packet in BUFFER_PACKET:
-                if packet.seq == before_seq :
-                    before_seq+=1
-                else :
-                    print(f"Packet seq {before_seq} is missing, waiting for it...")
-                    sock.sendto(Packet(seq, 4, before_seq.to_bytes(4, byteorder='big')).to_bytes(), addr)
-                    while True :
-                        try :
-                            data , addr = sock.recvfrom(BUFFER_SIZE)
-                            recv_seq, recv_packet_type, recv_checksum, recv_payload = (Packet.from_byte(data))
-                            if recv_checksum != hashlib.md5(recv_payload).digest():
-                                print("Checksum mismatch, ignoring packet")
-                                continue
-                            if(recv_packet_type == 1 and recv_seq == before_seq):
-                                current_recv_packet = Packet(recv_seq,recv_packet_type,recv_payload)
-                                ADD_BUFFER_PACKET(recv_seq,current_recv_packet)
-                                print("Missing packet received and added to buffer" + " --> "+ f"SEQ : {recv_seq}")
-                                break
-                            else :
-                                print("Received packet is not the missing packet, ignoring it...")
-                        except socket.timeout :
-                            print("Timeout waiting for missing packet, resending SACK...")
-                            sock.sendto(Packet(seq , 4, before_seq.to_bytes(4, byteorder='big')).to_bytes(), addr)
+                while packet.seq > before_seq :
+                    missing_seqs.append(before_seq)
+                    before_seq += 1
+                if packet.seq == before_seq:
+                    before_seq += 1
+
+            for missing in missing_seqs:
+                print(f"Packet seq {missing} is missing, waiting for it...")
+                sock.sendto(Packet(seq, 4, missing.to_bytes(4, byteorder='big')).to_bytes(), addr)
+                while True :
+                    try :
+                        data , addr = sock.recvfrom(BUFFER_SIZE)
+                        recv_seq, recv_packet_type, recv_checksum, recv_payload = (Packet.from_byte(data))
+                        if recv_checksum != hashlib.md5(recv_payload).digest():
+                            print("Checksum mismatch, ignoring packet")
+                            continue
+                        if(recv_packet_type == 1 and recv_seq == missing):
+                            current_recv_packet = Packet(recv_seq,recv_packet_type,recv_payload)
+                            ADD_BUFFER_PACKET(recv_seq,current_recv_packet)
+                            print("Missing packet received and added to buffer" + " --> "+ f"SEQ : {recv_seq}")
+                            break
+                        else :
+                            print("Received packet is not the missing packet, ignoring it...")
+                    except socket.timeout :
+                        print("Timeout waiting for missing packet, resending SACK...")
+                        sock.sendto(Packet(seq, 4, missing.to_bytes(4, byteorder='big')).to_bytes(), addr)
 
     else :
         print("No packets in buffer, waiting for new packets...")

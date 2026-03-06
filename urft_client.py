@@ -75,8 +75,8 @@ def sendPacket( payload : str , type : int,current_seq : int , sock : socket.soc
        return {"Error" : "Packet failed to pack!"} , send_data_result , current_seq
     ADD_BUFFER_PACKET(current_seq,data_packet)
     sock.sendto(data_packet.to_bytes(),addr_server)
+    print(f"Sending Data Packet..., SEQ : {current_seq} , Type : {type}")
     current_seq+=1
-    print(f"Sending Data Packet..., SEQ : {data_packet.seq} , Type : {data_packet.type} , Checksum : {data_packet.checksum} , Payload : {data_packet.payload}")
     return {"Success" : "Packet has been sent"} , send_data_result , current_seq
 
 
