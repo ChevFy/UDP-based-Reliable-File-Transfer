@@ -140,8 +140,10 @@ def main(arg):
                             continue
                         if(recv_packet_type == 1 and recv_seq == missing):
                             current_recv_packet = Packet(recv_seq,recv_packet_type,recv_payload)
-                            ADD_BUFFER_PACKET(recv_seq,current_recv_packet)
-                            print("Missing packet received and added to buffer" + " --> "+ f"SEQ : {recv_seq}")
+                            if ADD_BUFFER_PACKET(recv_seq,current_recv_packet) :
+                                print("Missing packet received and added to buffer" + " --> "+ f"SEQ : {recv_seq}")
+                            else :
+                                print("Received packet is already in buffer, ignoring it...")
                             break
                         else :
                             print("Received packet is not the missing packet, ignoring it...")
