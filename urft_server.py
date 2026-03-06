@@ -20,6 +20,9 @@ def CLEAR_BUFFER_PACKET():
 
 def ADD_BUFFER_PACKET( current_seq : int ,current_packet : Packet):
     if(current_seq == current_packet.seq):
+        for p in BUFFER_PACKET:
+            if p.seq == current_seq:
+                return False
         BUFFER_PACKET.append(current_packet)
         return True
     return False
