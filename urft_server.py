@@ -103,6 +103,7 @@ def main(arg):
             continue
         if(recv_packet_type == 1):
             current_recv_packet = Packet(recv_seq,recv_packet_type,recv_payload)
+            
             ADD_BUFFER_PACKET(recv_seq,current_recv_packet)
             print("Data packet received and added to buffer" + " --> "+ f"SEQ : {recv_seq}")
         
@@ -126,6 +127,7 @@ def main(arg):
                     before_seq += 1
                 if packet.seq == before_seq:
                     before_seq += 1
+            print(f"Missing seq : {missing_seqs}")
 
             for missing in missing_seqs:
                 socket.timeout(0.5)
@@ -146,7 +148,10 @@ def main(arg):
                                 print("recv packet is already in buffer, ignoring it...")
                             break
                         else :
-                            print("Received packet is not the missing packet, ignoring it...")
+                            print("Error: Invalid packet received while waiting for missing packet")
+    
+
+
                     except socket.timeout :
                         print("timeout for waiting miss packet!! resending SACK...")
                         sock.sendto(Packet(seq, 4, missing.to_bytes(4, byteorder='big')).to_bytes(), addr)
