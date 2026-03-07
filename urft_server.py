@@ -120,7 +120,7 @@ def main(arg):
     if len(BUFFER_PACKET) > 0 :
             # find all missing seq 
             missing_seqs = []
-            before_seq = BUFFER_PACKET[0].seq
+            before_seq = 1
             for packet in BUFFER_PACKET:
                 while packet.seq > before_seq :
                     missing_seqs.append(before_seq)
@@ -149,6 +149,9 @@ def main(arg):
                             break
                         else :
                             print("Error: Invalid packet received while waiting for missing packet")
+                            print(f"Resend... : SACK for missing packet, SEQ : {missing}")
+                            sock.sendto(Packet(seq, 4, missing.to_bytes(4, byteorder='big')).to_bytes(), addr)
+
     
 
 
@@ -171,11 +174,25 @@ def main(arg):
     
         
     #write file
+    file_payload_isnone = False
     recv_seq, recv_packet_type, recv_checksum, recv_payload = (Packet.from_byte(BUFFER_PACKET[0].to_bytes()))
+    print(f"Received SEQ : {recv_seq} , Type : {recv_packet_type} , Checksum : {recv_checksum} , Payload : {recv_payload} from {addr}")
+    if (recv_payload is b'') :
+        print("Error : Payload is None")
+        file_payload_isnone = True
+        recv_seq, recv_packet_type, recv_checksum, recv_payload = (Packet.from_byte(BUFFER_PACKET[1].to_bytes()))
+        print(f"Received SEQ : {recv_seq} , Type : {recv_packet_type} , Checksum : {recv_checksum} , Payload : {recv_payload} from {addr}")
+
+
+    
     file_name = recv_payload.decode()
+
     file_path = Path(file_name)
     with open(file_path, 'wb') as file:
-        for packet in BUFFER_PACKET[1:]:
+        x = 0
+        if file_payload_isnone :
+                x = 1
+        for packet in BUFFER_PACKET[x:]:
             file.write(packet.payload)
     print(f"File '{file_name}' has been written successfully")
         
