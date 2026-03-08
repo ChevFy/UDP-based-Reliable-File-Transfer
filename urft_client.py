@@ -98,11 +98,16 @@ def main(arg):
     addr_server = (server_ip, server_port)
 
     # Try to connet server 3 times
+    connection_result_client = False
     for _ in range(3):
+
         message_client , connection_result_client , seq = handshakeConnectionClient(seq,sock,addr_server)
         print(message_client)
         if(connection_result_client):
             break
+    if not connection_result_client :
+        print("Connection failed")
+        sys.exit(0)
     
     # Send data first time (file_name)
     message_client , send_filename_result , seq = sendPacket(file_name.encode("utf-8"),1,seq,sock,addr_server)

@@ -2,6 +2,7 @@ import sys
 import socket
 from pathlib import Path
 from urft_utilities import *
+import time
 
 
 # Type 0 for handshake
@@ -67,18 +68,24 @@ def handshakeConnectionServer( sock : socket.socket):
                 print("Timeout waiting for ACK, resending SYN-ACK...")
                 sock.sendto(ack_packet.to_bytes(), addr)
             
+server_state = False
+sock = None
 
 def main(arg):
 
     if len(arg) != 3:
         print("Error")
         sys.exit(0)
-    current_addr = None
-    server_ip, server_port = str(arg[1]), int(arg[2])
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind((server_ip, server_port))
-    print(f"Listening for UDP packets on {server_ip}:{server_port}")
+    global server_state, sock
+    if( not server_state) :
+        server_state = True
+        current_addr = None
+        server_ip, server_port = str(arg[1]), int(arg[2])
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.bind((server_ip, server_port))
+        print(f"Listening for UDP packets on {server_ip}:{server_port}")
 
+    
     ## Handshake
     connection_result_server = False
     while not connection_result_server:
@@ -90,7 +97,9 @@ def main(arg):
             break
         else :
             print("Connection failed")
-    
+            return main(arg)
+
+    start_time = time.time()
     ## wating recv packet
     while True :
         data , addr = sock.recvfrom(BUFFER_SIZE)
@@ -177,7 +186,7 @@ def main(arg):
     file_payload_isnone = False
     recv_seq, recv_packet_type, recv_checksum, recv_payload = (Packet.from_byte(BUFFER_PACKET[0].to_bytes()))
     print(f"Received SEQ : {recv_seq} , Type : {recv_packet_type} , Checksum : {recv_checksum} , Payload : {recv_payload} from {addr}")
-    if (recv_payload is b'') :
+    if (recv_payload == b'') :
         print("Error : Payload is None")
         file_payload_isnone = True
         recv_seq, recv_packet_type, recv_checksum, recv_payload = (Packet.from_byte(BUFFER_PACKET[1].to_bytes()))
@@ -200,6 +209,12 @@ def main(arg):
     #reset buffer
     CLEAR_BUFFER_PACKET()
     print("Buffer cleared, ready for new connections")
+    end_time = time.time()
+    print(f"TIME : {end_time - start_time} second")
+    print("------------------------------")
+    
+
+    main(arg)
     
 
 if __name__ == "__main__":
