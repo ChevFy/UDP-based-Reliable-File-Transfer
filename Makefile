@@ -8,4 +8,4 @@ server:
 	python3 urft_server.py $(SERVER_IP) $(SERVER_PORT)
 
 client:
-	python3 urft_client.py $(FILE) $(SERVER_IP) $(SERVER_PORT)
+	python3 urft_client.py client_file/$(FILE) $(SERVER_IP) $(SERVER_PORT)

@@ -43,6 +43,9 @@ def handshakeConnectionClient( seq :int , sock : socket.socket , addr_server):
         #wating for reciev syn-ack 
         while True :
             print("Waiting for SYN-ACK...")
+            count+=1
+            if(count >= 3):
+                return {"Error" : "Connection Failed!!"} , connect_result , seq
             try :
                 SYN_ACK_data , addr = sock.recvfrom(BUFFER_SIZE)
                 SYN_ACK_recv_seq, SYN_ACK_recv_packet_type, SYN_ACK_recv_checksum, SYN_ACK_recv_payload = Packet.from_byte(SYN_ACK_data)
@@ -58,9 +61,6 @@ def handshakeConnectionClient( seq :int , sock : socket.socket , addr_server):
                     seq += 1
                     break
                 else :
-                    if(count >= 3):
-                            return {"Error" : "Connection Failed!!"} , connect_result , seq
-                    count+=1
                     print("Error : Something isn't valid")
                     print("Resend... : SYN Packet")
                     sock.sendto( SYN_packet.to_bytes() ,addr_server)
