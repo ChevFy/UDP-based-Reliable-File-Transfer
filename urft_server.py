@@ -30,6 +30,7 @@ def ADD_BUFFER_PACKET( current_seq : int ,current_packet : Packet):
 
 def handshakeConnectionServer( sock : socket.socket):
     connection_result =  False
+    sock.settimeout(None)  # Reset timeout for blocking wait on new connections
 
     #waiting recv SYN
     while not connection_result :
@@ -49,7 +50,7 @@ def handshakeConnectionServer( sock : socket.socket):
             print(
                 f"SEND SEQ : {SYN_recv_seq} , Type : 2 , Checksum : None , Payload : None to {addr}"
             )
-        socket.timeout(3)
+        sock.settimeout(3)
         while True :
             # waiting for
             try :
@@ -85,6 +86,7 @@ def main(arg):
         sock.bind((server_ip, server_port))
         print(f"Listening for UDP packets on {server_ip}:{server_port}")
 
+    data_length_packet = 0
     
     while True:
 
@@ -127,20 +129,16 @@ def main(arg):
             ack_packet = Packet(recv_seq, 2, None)
             sock.sendto(ack_packet.to_bytes(), addr)
             print(f"SEND SEQ : {recv_seq} , Type : 2 , Checksum : None , Payload : None to {addr}")
+            data_length_packet = recv_seq
+            print( "FIN from Client: ", recv_seq)
             break
 
       BUFFER_PACKET.sort(key=lambda x: x.seq)
       ##Check buffer 
       if len(BUFFER_PACKET) > 0 :
               # find all missing seq 
-              missing_seqs = []
-              before_seq = 1
-              for packet in BUFFER_PACKET:
-                  while packet.seq > before_seq :
-                      missing_seqs.append(before_seq)
-                      before_seq += 1
-                  if packet.seq == before_seq:
-                      before_seq += 1
+              received_seqs = {packet.seq for packet in BUFFER_PACKET}
+              missing_seqs = [i for i in range(1, data_length_packet) if i not in received_seqs]
               print(f"Missing seq : {missing_seqs}")
 
               for missing in missing_seqs:
@@ -202,7 +200,8 @@ def main(arg):
       end_time = time.time()
       print(f"TIME : {end_time - start_time} second")
       print("------------------------------")
-      break
+      sock.settimeout(None)  # Reset before next handshake
+      sys.exit(0)
 
 if __name__ == "__main__":
     main(sys.argv)

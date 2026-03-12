@@ -76,8 +76,9 @@ def sendPacket( payload : str , type : int,current_seq : int , sock : socket.soc
     data_packet = Packet(current_seq, type , payload)
     if not data_packet :
        return {"Error" : "Packet failed to pack!"} , send_data_result , current_seq
-    ADD_BUFFER_PACKET(current_seq,data_packet)
-    print(f"ADD packet to buffer, SEQ : {current_seq} , Type : {type}")
+    if(type == 1):
+        ADD_BUFFER_PACKET(current_seq,data_packet)
+        print(f"ADD packet to buffer, SEQ : {current_seq} , Type : Data")
     sock.sendto(data_packet.to_bytes(),addr_server)
     print(f"Sending Data Packet..., SEQ : {current_seq} , Type : {type}")
     current_seq+=1
@@ -122,6 +123,7 @@ def main(arg):
             buffer_read = file.read(payload_size)
             if not buffer_read :
                 message_client , send_data_result, seq = sendPacket(None,3,seq,sock,addr_server)
+                print("send FIN packet" , {seq-1})
                 break
 
             message_client , send_data_result, seq = sendPacket(buffer_read,1,seq,sock,addr_server)
@@ -129,6 +131,7 @@ def main(arg):
     
     ## Check ACK for FIN
     fin_seq = seq - 1 
+    print("fin_seq" , fin_seq)
     fin_packet = Packet(fin_seq, 3, None)
     while True :
         try :
@@ -170,7 +173,7 @@ def main(arg):
                 print("Error : Something isn't valid")
         except socket.timeout :
             print("Timeout!!! Waiting for SACK...")
-            sock.sendto(Packet(seq, 4, missing_seq.to_bytes(4, byteorder='big')).to_bytes(), addr_server)
+            # Client doesn't know missing_seq until it receives SACK from server - just keep waiting
 
     print("completed successfully!")
     sock.close()
