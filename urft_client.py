@@ -3,7 +3,7 @@ import socket
 from pathlib import Path
 from urft_utilities import *
 
-BUFFER_SIZE = 16384
+BUFFER_SIZE = 4096
 
 # Type 0 for handshake
 # Type 1 for Send Packet
@@ -161,19 +161,22 @@ def main(arg):
                 print("----tranfer----")
                 break
             if(recv_packet_type == 4 and hashlib.md5(recv_payload).digest() == recv_checksum) :
-                print("sack received successfully")
-                missing_seq = int.from_bytes(recv_payload, byteorder='big')
-                print(f"Resending missing packet with seq : {missing_seq}")
-                for packet in BUFFER_PACKET:
-                    if packet.seq == missing_seq:
-                        sock.sendto(packet.to_bytes(), addr_server)
-                        print(f"Resent packet with seq : {missing_seq}")
-                        break
+                print("SACK received successfully")
+                # parse all missing seqs (each 4 bytes)
+                missing_seqs = []
+                for i in range(0, len(recv_payload), 4):
+                    missing_seqs.append(int.from_bytes(recv_payload[i:i+4], byteorder='big'))
+                print(f"Missing seqs from server: {missing_seqs}")
+                for missing_seq in missing_seqs:
+                    for packet in BUFFER_PACKET:
+                        if packet.seq == missing_seq:
+                            sock.sendto(packet.to_bytes(), addr_server)
+                            print(f"Resent packet with seq : {missing_seq}")
+                            break
             else :
                 print("Error : Something isn't valid")
         except socket.timeout :
             print("Timeout!!! Waiting for SACK...")
-            # Client doesn't know missing_seq until it receives SACK from server - just keep waiting
 
     print("completed successfully!")
     sock.close()
