@@ -3,7 +3,7 @@ import socket
 from pathlib import Path
 from urft_utilities import *
 
-BUFFER_SIZE = 4096
+BUFFER_SIZE = 16384
 
 # Type 0 for handshake
 # Type 1 for Send Packet

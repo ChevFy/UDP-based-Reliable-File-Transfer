@@ -12,7 +12,7 @@ import time
 # Type 4 for SACK
 
 
-BUFFER_SIZE = 4096
+BUFFER_SIZE = 16384
 
 BUFFER_PACKET = []
 
@@ -86,9 +86,11 @@ def main(arg):
         print(f"Listening for UDP packets on {server_ip}:{server_port}")
 
     
-    ## Handshake
-    connection_result_server = False
-    while not connection_result_server:
+    while True:
+
+      ## Handshake
+      connection_result_server = False
+      while not connection_result_server:
         message_server , connection_result_server , seq , current_addr = handshakeConnectionServer(sock)
         print(message_server)
         if(connection_result_server):
@@ -97,15 +99,18 @@ def main(arg):
             break
         else :
             print("Connection failed")
-            return main(arg)
+            break
 
-    start_time = time.time()
-    ## wating recv packet
-    while True :
+      if not connection_result_server:
+          continue
+
+      start_time = time.time()
+      ## wating recv packet
+      while True :
         data , addr = sock.recvfrom(BUFFER_SIZE)
         if (current_addr != addr ):
             print(f"{addr} , {current_addr} isn't match")
-            return main(arg)
+            continue
         recv_seq, recv_packet_type, recv_checksum, recv_payload = (Packet.from_byte(data))
         if recv_checksum != hashlib.md5(recv_payload).digest():
             print("Checksum mismatch, ignoring packet")
@@ -124,98 +129,80 @@ def main(arg):
             print(f"SEND SEQ : {recv_seq} , Type : 2 , Checksum : None , Payload : None to {addr}")
             break
 
-    BUFFER_PACKET.sort(key=lambda x: x.seq)
-    ##Check buffer 
-    if len(BUFFER_PACKET) > 0 :
-            # find all missing seq 
-            missing_seqs = []
-            before_seq = 1
-            for packet in BUFFER_PACKET:
-                while packet.seq > before_seq :
-                    missing_seqs.append(before_seq)
-                    before_seq += 1
-                if packet.seq == before_seq:
-                    before_seq += 1
-            print(f"Missing seq : {missing_seqs}")
+      BUFFER_PACKET.sort(key=lambda x: x.seq)
+      ##Check buffer 
+      if len(BUFFER_PACKET) > 0 :
+              # find all missing seq 
+              missing_seqs = []
+              before_seq = 1
+              for packet in BUFFER_PACKET:
+                  while packet.seq > before_seq :
+                      missing_seqs.append(before_seq)
+                      before_seq += 1
+                  if packet.seq == before_seq:
+                      before_seq += 1
+              print(f"Missing seq : {missing_seqs}")
 
-            for missing in missing_seqs:
-                socket.timeout(0.5)
-                print(f"Packet seq {missing} is missing!!")
-                sock.sendto(Packet(seq, 4, missing.to_bytes(4, byteorder='big')).to_bytes(), addr)
-                while True :
-                    try :
-                        data , addr = sock.recvfrom(BUFFER_SIZE)
-                        recv_seq, recv_packet_type, recv_checksum, recv_payload = (Packet.from_byte(data))
-                        if recv_checksum != hashlib.md5(recv_payload).digest():
-                            print("Checksum mismatch")
-                            continue
-                        if(recv_packet_type == 1 and recv_seq == missing):
-                            current_recv_packet = Packet(recv_seq,recv_packet_type,recv_payload)
-                            if ADD_BUFFER_PACKET(recv_seq,current_recv_packet) :
-                                print("miss packet recev and added to buffer" + " --> "+ f"SEQ : {recv_seq}")
-                            else :
-                                print("recv packet is already in buffer, ignoring it...")
-                            break
-                        else :
-                            print("Error: Invalid packet received while waiting for missing packet")
-                            print(f"Resend... : SACK for missing packet, SEQ : {missing}")
-                            sock.sendto(Packet(seq, 4, missing.to_bytes(4, byteorder='big')).to_bytes(), addr)
+              for missing in missing_seqs:
+                  sock.settimeout(0.5)
+                  print(f"Packet seq {missing} is missing!!")
+                  sock.sendto(Packet(seq, 4, missing.to_bytes(4, byteorder='big')).to_bytes(), addr)
+                  while True :
+                      try :
+                          data , addr = sock.recvfrom(BUFFER_SIZE)
 
-    
+                          recv_seq, recv_packet_type, recv_checksum, recv_payload = (Packet.from_byte(data))
+                          if recv_checksum != hashlib.md5(recv_payload).digest():
+                              print("Checksum mismatch")
+                              continue
+                          if(recv_packet_type == 1 and recv_seq == missing):
+                              current_recv_packet = Packet(recv_seq,recv_packet_type,recv_payload)
+                              if ADD_BUFFER_PACKET(recv_seq,current_recv_packet) :
+                                  print("miss packet recev and added to buffer" + " --> "+ f"SEQ : {recv_seq}")
+                              else :
+                                  print("recv packet is already in buffer, ignoring it...")
+                              break
+                          else :
+                              print("Error: Invalid packet received while waiting for missing packet")
+                              print(f"Resend... : SACK for missing packet, SEQ : {missing}")
+                              sock.sendto(Packet(seq, 4, missing.to_bytes(4, byteorder='big')).to_bytes(), addr)
 
+                      except socket.timeout :
+                          print("timeout for waiting miss packet!! resending SACK...")
+                          sock.sendto(Packet(seq, 4, missing.to_bytes(4, byteorder='big')).to_bytes(), addr)
 
-                    except socket.timeout :
-                        print("timeout for waiting miss packet!! resending SACK...")
-                        sock.sendto(Packet(seq, 4, missing.to_bytes(4, byteorder='big')).to_bytes(), addr)
+      else :
+          print("No packets in buffer, waiting for new packets...")
+          CLEAR_BUFFER_PACKET()
+          continue
+      
+      BUFFER_PACKET.sort(key=lambda x: x.seq)
 
-    else :
-        print("No packets in buffer, waiting for new packets...")
-        CLEAR_BUFFER_PACKET()
-        return main(arg)
-    
-    BUFFER_PACKET.sort(key=lambda x: x.seq)
-    # print(BUFFER_PACKET)
+      #sent FIN-ACK
+      fin_ack_packet = Packet(seq, 3, None)
+      sock.sendto(fin_ack_packet.to_bytes(), addr)
+      print(f"SEND SEQ : {seq} , Type : 3 , Checksum : None , Payload : None to {addr}")
+      
+      #write file
+      file_name = BUFFER_PACKET[0].payload.decode()
+      if not file_name:
+          print("Error : Filename is empty")
+          CLEAR_BUFFER_PACKET()
+          continue
 
-    #sent FIN-ACK
-    fin_ack_packet = Packet(seq, 3, None)
-    sock.sendto(fin_ack_packet.to_bytes(), addr)
-    print(f"SEND SEQ : {seq} , Type : 3 , Checksum : None , Payload : None to {addr}")
-    
-        
-    #write file
-    file_payload_isnone = False
-    recv_seq, recv_packet_type, recv_checksum, recv_payload = (Packet.from_byte(BUFFER_PACKET[0].to_bytes()))
-    print(f"Received SEQ : {recv_seq} , Type : {recv_packet_type} , Checksum : {recv_checksum} , Payload : {recv_payload} from {addr}")
-    if (recv_payload == b'') :
-        print("Error : Payload is None")
-        file_payload_isnone = True
-        recv_seq, recv_packet_type, recv_checksum, recv_payload = (Packet.from_byte(BUFFER_PACKET[1].to_bytes()))
-        print(f"Received SEQ : {recv_seq} , Type : {recv_packet_type} , Checksum : {recv_checksum} , Payload : {recv_payload} from {addr}")
-
-
-    
-    file_name = recv_payload.decode()
-
-    file_path = Path(file_name)
-    with open(file_path, 'wb') as file:
-        x = 0
-        if file_payload_isnone :
-                x = 1
-        for packet in BUFFER_PACKET[x:]:
-            file.write(packet.payload)
-    print(f"File '{file_name}' has been written successfully")
-        
-    
-    #reset buffer
-    CLEAR_BUFFER_PACKET()
-    print("Buffer cleared, ready for new connections")
-    end_time = time.time()
-    print(f"TIME : {end_time - start_time} second")
-    print("------------------------------")
-    
-
-    main(arg)
-    
+      file_path = Path(file_name)
+      with open(file_path, 'wb') as file:
+          for packet in BUFFER_PACKET[1:]:
+              file.write(packet.payload)
+      print(f"File '{file_name}' has been written successfully")
+      
+      #reset buffer
+      CLEAR_BUFFER_PACKET()
+      print("Buffer cleared, ready for new connections")
+      end_time = time.time()
+      print(f"TIME : {end_time - start_time} second")
+      print("------------------------------")
+      break
 
 if __name__ == "__main__":
     main(sys.argv)
