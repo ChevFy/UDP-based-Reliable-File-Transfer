@@ -30,7 +30,7 @@ def ADD_BUFFER_PACKET( current_seq : int ,current_packet : Packet):
 
 def handshakeConnectionServer( sock : socket.socket):
     connection_result =  False
-    sock.settimeout(None)  # Reset timeout for blocking wait on new connections
+    sock.settimeout(None)  
 
     #waiting recv SYN
     while not connection_result :
@@ -50,16 +50,24 @@ def handshakeConnectionServer( sock : socket.socket):
             print(
                 f"SEND SEQ : {SYN_recv_seq} , Type : 2 , Checksum : None , Payload : None to {addr}"
             )
+        else:
+            continue
+
         sock.settimeout(3)
         while True :
-            # waiting for
             try :
                 ACK_data, addr = sock.recvfrom(BUFFER_SIZE)
                 ACK_recv_seq, ACK_recv_packet_type, ACK_recv_checksum, ACK_recv_payload = (Packet.from_byte(ACK_data))
                 print(
                     f"Received SEQ : {ACK_recv_seq} , Type : {ACK_recv_packet_type} , Checksum : {ACK_recv_checksum} , Payload : {ACK_recv_payload} from {addr}"
                 )
-                if (ACK_recv_packet_type == 1 and ACK_recv_seq == SYN_recv_seq and ACK_recv_checksum == hashlib.md5(ACK_recv_payload).digest()):
+                # Client might resend SYN while we're waiting for ACK; re-send SYN-ACK.
+                if (ACK_recv_packet_type == 0 and ACK_recv_seq == SYN_recv_seq and ACK_recv_checksum == hashlib.md5(ACK_recv_payload).digest()):
+                    print("Received duplicate SYN while waiting for ACK, resending SYN-ACK...")
+                    sock.sendto(ack_packet.to_bytes(), addr)
+                    continue
+
+                if (ACK_recv_packet_type == 2 and ACK_recv_seq == SYN_recv_seq and ACK_recv_checksum == hashlib.md5(ACK_recv_payload).digest()):
                     connection_result = True
                     print("Connection established successfully")
                     return {"Success" : "Server Connection Success"} , connection_result , SYN_recv_seq , addr
@@ -107,7 +115,6 @@ def main(arg):
           continue
 
       start_time = time.time()
-      ## wating recv packet
       while True :
         data , addr = sock.recvfrom(BUFFER_SIZE)
         if (current_addr != addr ):
@@ -134,7 +141,6 @@ def main(arg):
             break
 
       BUFFER_PACKET.sort(key=lambda x: x.seq)
-      ##Check buffer 
       if len(BUFFER_PACKET) > 0 :
               # find all missing seq 
               buffet_packet_completely = False
@@ -182,9 +188,29 @@ def main(arg):
       BUFFER_PACKET.sort(key=lambda x: x.seq)
 
       #sent FIN-ACK
-      fin_ack_packet = Packet(seq, 3, None)
-      sock.sendto(fin_ack_packet.to_bytes(), addr)
-      print(f"SEND SEQ : {seq} , Type : 3 , Checksum : None , Payload : None to {addr}")
+      fin_seq = seq
+      fin_ack_packet = Packet(fin_seq, 3, None)
+      retries = 0
+      sock.settimeout(0.5)
+      while True:
+          sock.sendto(fin_ack_packet.to_bytes(), addr)
+          print(f"SEND SEQ : {fin_seq} , Type : 3 , Checksum : None , Payload : None to {addr}")
+          try:
+              ack_data, ack_addr = sock.recvfrom(BUFFER_SIZE)
+              if ack_addr != addr:
+                  continue
+              ack_seq, ack_type, ack_checksum, ack_payload = Packet.from_byte(ack_data)
+              if ack_checksum != hashlib.md5(ack_payload).digest():
+                  continue
+              if ack_type == 2 and ack_seq == fin_seq:
+                  print("ACK for server FIN received")
+                  break
+          except socket.timeout:
+              retries += 1
+              if retries >= 10:
+                  print("Timeout waiting for ACK to server FIN, giving up")
+                  break
+      sock.settimeout(None)
       
       #write file
       file_name = BUFFER_PACKET[0].payload.decode()
@@ -205,7 +231,6 @@ def main(arg):
       end_time = time.time()
       print(f"TIME : {end_time - start_time} second")
       print("------------------------------")
-      sock.settimeout(None)  # Reset before next handshake
       sys.exit(0)
 
 if __name__ == "__main__":

@@ -53,10 +53,11 @@ def handshakeConnectionClient( seq :int , sock : socket.socket , addr_server):
                 if(SYN_ACK_recv_packet_type == 2 and SYN_ACK_recv_seq == seq and hashlib.md5(SYN_ACK_recv_payload).digest() == SYN_ACK_recv_checksum) :
                     connect_result , SYN_ACK_recv = True, True
                     print("SYN-ACK received successfully")
-                    ACK_packet = Packet(seq,1,None)
+                    # ACK for handshake should be Type 2 (ACK)
+                    ACK_packet = Packet(seq,2,None)
                     if(not ACK_packet) :
                         return {"Error" : "ACK Packet failed to pack"} , connect_result , seq
-                    print(f"SEND SEQ : {seq} , Type : 1 , Checksum : None , Payload : None")
+                    print(f"SEND SEQ : {seq} , Type : 2 , Checksum : None , Payload : None")
                     sock.sendto( ACK_packet.to_bytes() ,addr_server)
                     seq += 1
                     break
@@ -141,28 +142,31 @@ def main(arg):
             if(recv_packet_type == 2 and recv_seq == fin_seq and hashlib.md5(recv_payload).digest() == recv_checksum) :
                 print("ACK for FIN recv successfully")
                 break
-            else :
-                print("Error : Something isn't valid")
-                print("Resend... : FIN Packet")
-                sock.sendto(fin_packet.to_bytes(), addr_server)
+            else:
+                print("Ignoring non-ACK packet while waiting for FIN ACK")
         except socket.timeout :
             print("Timeout!!!")
             print("Resend... : FIN Packet")
             sock.sendto(fin_packet.to_bytes(), addr_server)
 
     ## SACK : Missiong packet
+    server_fin_ackd = False
     while True :
         try :
             data , addr = sock.recvfrom(BUFFER_SIZE)
             recv_seq, recv_packet_type, recv_checksum, recv_payload = Packet.from_byte(data)
             print(f"Received SEQ : {recv_seq} , Type : {recv_packet_type} , Checksum : {recv_checksum} , Payload : {recv_payload} from {addr}")
-            if(recv_packet_type == 3 and hashlib.md5(recv_payload).digest() == recv_checksum) :
+            # FIN from server: don't enforce checksum for this control packet.
+            if(recv_packet_type == 3):
                 print("FIN received from server")
+                fin_ack = Packet(recv_seq, 2, None)
+                sock.sendto(fin_ack.to_bytes(), addr_server)
+                server_fin_ackd = True
                 print("----tranfer----")
                 break
-            if(recv_packet_type == 4 and hashlib.md5(recv_payload).digest() == recv_checksum) :
+            # SACK from server: accept even if checksum differs so we can recover missing data.
+            if(recv_packet_type == 4):
                 print("SACK received successfully")
-                # parse all missing seqs (each 4 bytes)
                 missing_seqs = []
                 for i in range(0, len(recv_payload), 4):
                     missing_seqs.append(int.from_bytes(recv_payload[i:i+4], byteorder='big'))
@@ -173,48 +177,13 @@ def main(arg):
                             sock.sendto(packet.to_bytes(), addr_server)
                             print(f"Resent packet with seq : {missing_seq}")
                             break
-            else :
-                print("Error : Something isn't valid")
         except socket.timeout :
             print("Timeout!!! Waiting for SACK...")
 
     print("completed successfully!")
     sock.close()
+    sys.exit(0)
     
-
-
-    
-
-    
-    
-    
-    
-
-    
-        
-
-        
-    
-
-                    
-                    
-                   
-                    
-                    
-
-
-                    
-            
-
-
-
-            
-
-
-        
-            
-
-
 
 if __name__ == "__main__":
     main(sys.argv)
